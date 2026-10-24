@@ -265,7 +265,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
 
 <script>
 (function(){
-const APP_VERSION="1.1";
+const APP_VERSION="1.2";
 const CATS=["Repair","Maintenance","Install","Inspection","Travel","Turn-Over","Other"];
 const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -545,7 +545,7 @@ load(); fDate.value=iso(new Date()); renderCats(); setHours(1); renderAll();
 // Refresh "today" when the app is reopened on a new day.
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!state.editing&&fDate.value<iso(new Date())){fDate.value=iso(new Date());state.weekStart=monday(new Date());renderAll();}});
 
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>r.update()).catch(()=>{}));}
 })();
 </script>
 </body>
