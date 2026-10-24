@@ -117,6 +117,27 @@ tr.grand td{font-weight:700;border-bottom:0;background:var(--accent-soft)}
 .saved div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
 .saved div span{min-width:0;overflow-wrap:anywhere}
 
+.photos{display:flex;flex-direction:column;gap:10px}
+.photobtns{display:flex;gap:10px;flex-wrap:wrap}
+.photoadd{flex:1 1 140px;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;text-align:center}
+.photoadd input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.photoadd:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.thumbs:empty{display:none}
+.thumb{position:relative;aspect-ratio:1;max-width:100%;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--sunk);padding:0;cursor:pointer}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.kind{position:absolute;left:4px;bottom:4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--ink);color:var(--surface);border-radius:4px;padding:1px 5px}
+.kind.after{background:var(--accent);color:var(--accent-ink)}
+.entry .pstrip{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.entry .pstrip img{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block}
+.viewer{position:fixed;inset:0;z-index:30;background:#000;color:#fff;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.viewer .vimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:4px}
+.viewer img{max-width:100%;max-height:100%;object-fit:contain}
+.viewer .vbar{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;align-items:center;justify-content:space-between}
+.viewer .vbar .btn{background:#2a3033;color:#fff;min-height:44px;padding:8px 12px;font-size:14px;flex:1 1 auto}
+.viewer .vbar .btn:disabled{opacity:.35}
+.viewer .vbar .btn.danger{background:transparent;color:#ff8a80;border:1px solid #ff8a80}
+.viewer #vLabel{font-weight:600}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);z-index:6;padding-bottom:env(safe-area-inset-bottom,0px)}
 nav.tabs .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding-block:6px}
 nav.tabs button{border:0;background:none;padding:8px 4px;border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:600;color:var(--muted);min-height:54px}
@@ -175,6 +196,16 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
         </div>
         <div class="hint" id="hoursHint">Steps of 15 minutes. Enter a start and end time to fill this in.</div>
       </div>
+      <div class="photos">
+        <span class="label">Photos</span>
+        <div class="photobtns">
+          <label class="btn ghost photoadd"><input type="file" class="photoInput" id="photoBefore" data-kind="before" accept="image/*" multiple>+ Before photo</label>
+          <label class="btn ghost photoadd"><input type="file" class="photoInput" id="photoAfter" data-kind="after" accept="image/*" multiple>+ After photo</label>
+        </div>
+        <div class="thumbs" id="formThumbs"></div>
+        <button type="button" class="btn ghost small" id="sharePhotosBtn" hidden>Share these photos</button>
+        <div class="hint" id="photoHint">Take a photo or pick from your library. Add the before photo now and the after photo later. Your unsaved entry is kept until you tap Save.</div>
+      </div>
       <div class="actions">
         <button type="submit" class="btn primary" id="saveBtn" style="flex-basis:100%">Save entry</button>
         <button type="button" class="btn ghost" id="cancelEdit" hidden>Cancel</button>
@@ -228,6 +259,8 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
       <h2 style="font-size:19px">Backup</h2>
       <p class="empty" style="color:var(--ink)">Your log is stored only on this phone. Save a backup file to iCloud Drive or email it to yourself so you don't lose it if the phone is lost or replaced.</p>
       <p class="empty" id="backupStatus"></p>
+      <p class="empty" id="photoStatus"></p>
+      <label style="display:flex;gap:10px;align-items:center;font-size:14px"><input type="checkbox" id="incPhotos" checked style="width:22px;height:22px;accent-color:var(--ink)"> Include photos (bigger file, but your photos are safe too)</label>
       <div class="actions">
         <button type="button" class="btn primary" id="backupBtn">Save backup</button>
         <button type="button" class="btn ghost" id="restoreBtn">Restore from backup</button>
@@ -254,6 +287,18 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
   </section>
 </main>
 
+<div class="viewer" id="viewer" hidden role="dialog" aria-modal="true" aria-label="Photo">
+  <div class="vbar"><span id="vLabel"></span><button type="button" class="btn" id="vClose" style="flex:0 0 auto">Close</button></div>
+  <div class="vimg"><img id="vImg" alt=""></div>
+  <div class="vbar">
+    <button type="button" class="btn" id="vPrev" aria-label="Previous photo">‹</button>
+    <button type="button" class="btn" id="vKind">Mark as after</button>
+    <button type="button" class="btn" id="vShare">Share</button>
+    <button type="button" class="btn danger" id="vDelete">Delete</button>
+    <button type="button" class="btn" id="vNext" aria-label="Next photo">›</button>
+  </div>
+</div>
+
 <nav class="tabs" aria-label="Sections">
   <div class="wrap" role="tablist">
     <button role="tab" data-tab="log" aria-selected="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Log</button>
@@ -265,7 +310,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
 
 <script>
 (function(){
-const APP_VERSION="1.2";
+const APP_VERSION="1.3";
 const CATS=["Repair","Maintenance","Install","Inspection","Travel","Turn-Over","Other"];
 const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -289,6 +334,7 @@ function load(){
   catch(e){toast("Couldn't read saved data on this phone.");}
 }
 function persist(){
+  if(typeof readyBackup!=="undefined"&&readyBackup&&$("#backupBtn"))resetBackupBtn();
   try{localStorage.setItem(KEY,JSON.stringify({version:1,entries:state.entries,prefs:state.prefs}));return true;}
   catch(e){toast("Couldn't save. Your phone may be out of storage.");return false;}
 }
@@ -298,6 +344,54 @@ try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}c
 /* ---------- toast ---------- */
 let toastT;
 function toast(msg){let t=$(".toast"); if(!t){t=document.createElement("div");t.className="toast";t.setAttribute("role","status");document.body.appendChild(t);} t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,2800);}
+
+/* ---------- photos (stored on this phone in IndexedDB) ---------- */
+let photosOK=!!window.indexedDB;
+const PDB={db:null,
+  open(){ if(this.db)return Promise.resolve(this.db); return new Promise((res,rej)=>{let r;try{r=indexedDB.open("fieldlog-photos",1);}catch(e){rej(e);return;} r.onupgradeneeded=()=>{const st=r.result.createObjectStore("photos",{keyPath:"id"});st.createIndex("entryId","entryId");}; r.onsuccess=()=>{this.db=r.result;res(this.db);}; r.onerror=()=>rej(r.error);}); },
+  req(r){return new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});},
+  async put(p){const db=await this.open();return new Promise((res,rej)=>{const t=db.transaction("photos","readwrite");t.objectStore("photos").put(p);t.oncomplete=()=>res();t.onerror=t.onabort=()=>rej(t.error||new Error("write failed"));});},
+  async get(id){const db=await this.open();return this.req(db.transaction("photos").objectStore("photos").get(id));},
+  async all(){const db=await this.open();return this.req(db.transaction("photos").objectStore("photos").getAll());},
+  async del(ids){const db=await this.open();return new Promise((res,rej)=>{const t=db.transaction("photos","readwrite");const st=t.objectStore("photos");ids.forEach(i=>st.delete(i));t.oncomplete=()=>res();t.onerror=t.onabort=()=>rej(t.error);});}
+};
+const photoIndex=new Map(); // entry id -> [{id,kind,createdAt}]
+const thumbURL=new Map();   // photo id -> object URL of its thumbnail
+const formBlobs=new Map();  // photo id -> full image, preloaded so Share opens instantly
+function sortPhotos(arr){arr.sort((a,b)=>(a.kind===b.kind?0:a.kind==="before"?-1:1)||a.createdAt-b.createdAt);}
+function indexPhoto(p){
+  for(const [eid,arr] of photoIndex){const i=arr.findIndex(m=>m.id===p.id);if(i>=0&&eid!==p.entryId){arr.splice(i,1);}}
+  if(!photoIndex.has(p.entryId))photoIndex.set(p.entryId,[]);
+  const arr=photoIndex.get(p.entryId),m={id:p.id,kind:p.kind,createdAt:p.createdAt},i=arr.findIndex(x=>x.id===p.id);
+  if(i>=0)arr[i]=m; else arr.push(m); sortPhotos(arr);
+  if(!thumbURL.has(p.id)&&p.thumb)thumbURL.set(p.id,URL.createObjectURL(p.thumb));
+}
+function unindexPhoto(id){
+  for(const [eid,arr] of photoIndex){const i=arr.findIndex(m=>m.id===id);if(i>=0){arr.splice(i,1);if(!arr.length)photoIndex.delete(eid);}}
+  const u=thumbURL.get(id); if(u){URL.revokeObjectURL(u);thumbURL.delete(id);} formBlobs.delete(id);
+}
+function deletePhotosFor(eid){const ids=(photoIndex.get(eid)||[]).map(m=>m.id);ids.forEach(unindexPhoto);if(ids.length)PDB.del(ids).catch(()=>{});}
+function photoCount(){let n=0;photoIndex.forEach(a=>n+=a.length);return n;}
+async function loadPhotos(){
+  if(!photosOK){renderAll();return;}
+  try{
+    const all=await PDB.all(); const keep=new Set(state.entries.map(e=>e.id)); keep.add(state.draftId);
+    const orphans=[]; all.forEach(p=>{if(keep.has(p.entryId))indexPhoto(p); else orphans.push(p.id);});
+    if(orphans.length)await PDB.del(orphans);
+  }catch(e){photosOK=false;}
+  renderAll();
+}
+function loadImg(file){return new Promise((res,rej)=>{const u=URL.createObjectURL(file);const i=new Image();i.onload=()=>res({i,u});i.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("decode"));};i.src=u;});}
+function canvasBlob(c,q){return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("encode")),"image/jpeg",q));}
+async function processImage(file){
+  const {i,u}=await loadImg(file);
+  const draw=(max,q)=>{const k=Math.min(1,max/Math.max(i.naturalWidth,i.naturalHeight));const w=Math.max(1,Math.round(i.naturalWidth*k)),h=Math.max(1,Math.round(i.naturalHeight*k));const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(i,0,0,w,h);return canvasBlob(c,q).then(b=>({b,w,h}));};
+  try{const full=await draw(1600,0.78),th=await draw(240,0.6);return{blob:full.b,thumb:th.b,w:full.w,h:full.h};}
+  finally{URL.revokeObjectURL(u);}
+}
+function photoName(info,kind,n){const site=(info.site||"site").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").slice(0,30)||"site";return `${info.date||iso(new Date())}_${site}_${kind}_${n}.jpg`;}
+function blobToDataURL(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b);});}
+function dataURLToBlob(d){const k=d.indexOf(",");const head=d.slice(0,k),bin=atob(d.slice(k+1));const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:(head.match(/:(.*?);/)||[])[1]||"image/jpeg"});}
 
 /* ---------- tabs ---------- */
 $$("nav.tabs button").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
@@ -325,10 +419,29 @@ function calcFromTimes(){
 fStart.addEventListener("change",calcFromTimes); fEnd.addEventListener("change",calcFromTimes);
 fSite.addEventListener("input",renderSiteChips);
 
+const DKEY="fieldlog.draft.v1"; let draftT;
+function currentFormId(){return state.editing||state.draftId;}
+function draftHasContent(){return !!(fSite.value.trim()||fWhat.value.trim()||fStart.value||fEnd.value||(photoIndex.get(state.draftId)||[]).length);}
+function saveDraft(){
+  clearTimeout(draftT); if(state.editing)return;
+  try{ if(!draftHasContent()){localStorage.removeItem(DKEY);return;}
+    localStorage.setItem(DKEY,JSON.stringify({id:state.draftId,date:fDate.value,site:fSite.value,task:fWhat.value,start:fStart.value,end:fEnd.value,hours:fHours.value,cat:state.cat})); }catch(e){}
+}
+function saveDraftSoon(){clearTimeout(draftT);draftT=setTimeout(saveDraft,400);}
+function clearDraft(){clearTimeout(draftT);try{localStorage.removeItem(DKEY);}catch(e){}}
+function restoreDraft(){
+  try{const d=JSON.parse(localStorage.getItem(DKEY)||"null"); if(!d||!d.id)return false;
+    state.draftId=d.id; fDate.value=d.date||iso(new Date()); fSite.value=d.site||""; fWhat.value=d.task||""; fStart.value=d.start||""; fEnd.value=d.end||"";
+    setHours(parseFloat(d.hours)||1); state.cat=d.cat||state.cat; renderCats(); return true;}catch(e){return false;}
+}
+["input","change","click"].forEach(t=>$("#entryForm").addEventListener(t,saveDraftSoon));
 function resetForm(keepDate){
   state.editing=null;
-  if(!keepDate) fDate.value=iso(new Date());
-  fSite.value="";fWhat.value="";fStart.value="";fEnd.value="";setHours(1);
+  if(!restoreDraft()){
+    state.draftId=uid();
+    if(!keepDate) fDate.value=iso(new Date());
+    fSite.value="";fWhat.value="";fStart.value="";fEnd.value="";setHours(1);
+  }
   $("#hoursHint").textContent="Steps of 15 minutes. Enter a start and end time to fill this in.";
   $("#formTitle").textContent="Log a job"; $("#saveBtn").textContent="Save entry";
   $("#cancelEdit").hidden=true; $("#deleteBtn").hidden=true; armDelete(false);
@@ -336,25 +449,26 @@ function resetForm(keepDate){
 }
 function loadForEdit(id){
   const e=state.entries.find(x=>x.id===id); if(!e)return;
+  if(!state.editing)saveDraft();
   state.editing=id; fDate.value=e.date; fSite.value=e.site; fWhat.value=e.task||""; fStart.value=e.start||""; fEnd.value=e.end||"";
   setHours(e.hours); state.cat=e.category||"Other"; renderCats();
   $("#formTitle").textContent="Edit entry"; $("#saveBtn").textContent="Save changes";
   $("#cancelEdit").hidden=false; $("#deleteBtn").hidden=false; armDelete(false);
-  showTab("log"); renderSiteChips(); renderToday();
+  showTab("log"); renderSiteChips(); renderToday(); renderFormThumbs();
 }
 $("#cancelEdit").onclick=()=>resetForm();
 let delArmed=false,delT;
 function armDelete(on){delArmed=on;$("#deleteBtn").textContent=on?"Tap again to delete":"Delete";clearTimeout(delT);if(on)delT=setTimeout(()=>armDelete(false),4000);}
 $("#deleteBtn").onclick=()=>{
   if(!delArmed){armDelete(true);return;}
-  const id=state.editing; state.entries=state.entries.filter(x=>x.id!==id);
+  const id=state.editing; state.entries=state.entries.filter(x=>x.id!==id); deletePhotosFor(id);
   if(persist())toast("Entry deleted"); resetForm();
 };
 $("#repeatBtn").onclick=()=>{
   const last=[...state.entries].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0];
   if(!last){toast("No previous entry to repeat yet");return;}
   fSite.value=last.site; fWhat.value=last.task||""; state.cat=last.category||"Other"; setHours(last.hours); fStart.value="";fEnd.value="";
-  renderCats(); renderSiteChips(); toast("Filled in from your last entry");
+  renderCats(); renderSiteChips(); saveDraftSoon(); toast("Filled in from your last entry");
 };
 $("#entryForm").addEventListener("submit",ev=>{
   ev.preventDefault();
@@ -363,11 +477,12 @@ $("#entryForm").addEventListener("submit",ev=>{
   if(!site){toast("Add the site or location");fSite.focus();return;}
   if(hours<=0){toast("Hours must be more than 0");return;}
   const prev=state.editing?state.entries.find(x=>x.id===state.editing):null;
-  const entry={id:state.editing||uid(),date:fDate.value,site,category:state.cat,task:fWhat.value.trim(),start:fStart.value||"",end:fEnd.value||"",hours,createdAt:prev?.createdAt||Date.now()};
+  const entry={id:state.editing||state.draftId,date:fDate.value,site,category:state.cat,task:fWhat.value.trim(),start:fStart.value||"",end:fEnd.value||"",hours,createdAt:prev?.createdAt||Date.now()};
   const i=state.entries.findIndex(x=>x.id===entry.id); if(i>=0)state.entries[i]=entry; else state.entries.push(entry);
   if(!state.prefs.sites.some(s=>s.toLowerCase()===site.toLowerCase())) state.prefs.sites=[site,...state.prefs.sites].slice(0,60);
   const wasEdit=!!state.editing;
   if(persist()) toast(wasEdit?"Changes saved":`Saved ${fmtH(hours)} hrs at ${site}`);
+  if(!wasEdit)clearDraft();
   resetForm(true);
 });
 
@@ -385,6 +500,69 @@ function renderSiteChips(){
 }
 $("#siteChips").addEventListener("click",e=>{const b=e.target.closest("[data-site]");if(!b)return;fSite.value=b.dataset.site;renderSiteChips();});
 
+/* ---------- photos in the form ---------- */
+function renderFormThumbs(){
+  const box=$("#formThumbs");
+  if(!photosOK){$(".photobtns").hidden=true;$("#photoHint").textContent="Photos aren't available in this browser.";box.innerHTML="";$("#sharePhotosBtn").hidden=true;return;}
+  const list=photoIndex.get(currentFormId())||[];
+  box.innerHTML=list.map(m=>`<button type="button" class="thumb" data-view="${m.id}" aria-label="View ${m.kind} photo"><img src="${thumbURL.get(m.id)||""}" alt=""><span class="kind ${m.kind}">${m.kind}</span></button>`).join("");
+  const sb=$("#sharePhotosBtn"); sb.hidden=!list.length; sb.textContent=list.length>1?`Share these ${list.length} photos`:"Share this photo";
+  const want=new Set(list.map(m=>m.id)); [...formBlobs.keys()].forEach(k=>{if(!want.has(k))formBlobs.delete(k);});
+  list.forEach(m=>{if(!formBlobs.has(m.id))PDB.get(m.id).then(p=>{if(p)formBlobs.set(m.id,p.blob);}).catch(()=>{});});
+}
+$("#formThumbs").addEventListener("click",e=>{const b=e.target.closest("[data-view]");if(b)openViewer(currentFormId(),b.dataset.view);});
+$$(".photoInput").forEach(inp=>inp.addEventListener("change",async()=>{
+  const files=[...inp.files]; inp.value=""; if(!files.length)return;
+  const kind=inp.dataset.kind, eid=currentFormId(); let ok=0;
+  toast(files.length>1?`Adding ${files.length} photos…`:"Adding photo…");
+  for(const f of files){
+    try{const r=await processImage(f);const p={id:"p"+uid(),entryId:eid,kind,createdAt:Date.now(),blob:r.blob,thumb:r.thumb,w:r.w,h:r.h};await PDB.put(p);indexPhoto(p);ok++;}catch(e){}
+  }
+  saveDraft(); renderAll();
+  const K=kind[0].toUpperCase()+kind.slice(1);
+  toast(ok===files.length?(ok>1?`${ok} ${kind} photos added`:`${K} photo added`):ok?`Added ${ok} of ${files.length}. Some couldn't be read.`:"Couldn't add that photo. The phone may be out of storage.");
+}));
+$("#sharePhotosBtn").onclick=async()=>{
+  const list=photoIndex.get(currentFormId())||[], info={date:fDate.value,site:fSite.value.trim()}, n={before:0,after:0};
+  if(list.some(m=>!formBlobs.has(m.id))){renderFormThumbs();toast("Getting photos ready. Tap again in a moment.");return;}
+  const files=list.map(m=>new File([formBlobs.get(m.id)],photoName(info,m.kind,++n[m.kind]),{type:"image/jpeg"}));
+  const r=await shareFiles(files); if(r==="retry")toast("Tap Share again");
+};
+
+/* ---------- full-screen photo viewer ---------- */
+let vList=[],vIdx=0,vURL=null,vCur=null,vEntry=null,vDelArmed=false;
+async function openViewer(eid,pid){vEntry=eid;vList=(photoIndex.get(eid)||[]).map(m=>m.id);vIdx=Math.max(0,vList.indexOf(pid));$("#viewer").hidden=false;document.documentElement.style.overflow="hidden";await showV();}
+async function showV(){
+  const id=vList[vIdx]; if(!id){closeV();return;}
+  let p=null; try{p=await PDB.get(id);}catch(e){}
+  if(!p){toast("Couldn't open that photo.");closeV();return;}
+  vCur=p; if(vURL)URL.revokeObjectURL(vURL); vURL=URL.createObjectURL(p.blob); $("#vImg").src=vURL;
+  $("#vLabel").textContent=`${p.kind==="after"?"After":"Before"} · ${vIdx+1} of ${vList.length}`;
+  $("#vKind").textContent=p.kind==="after"?"Mark as before":"Mark as after";
+  $("#vPrev").disabled=vIdx===0; $("#vNext").disabled=vIdx>=vList.length-1; vArm(false);
+}
+function closeV(){$("#viewer").hidden=true;document.documentElement.style.overflow="";if(vURL){URL.revokeObjectURL(vURL);vURL=null;}$("#vImg").removeAttribute("src");vCur=null;}
+function vArm(on){vDelArmed=on;$("#vDelete").textContent=on?"Tap again to delete":"Delete";}
+$("#vClose").onclick=closeV;
+$("#vPrev").onclick=()=>{if(vIdx>0){vIdx--;showV();}};
+$("#vNext").onclick=()=>{if(vIdx<vList.length-1){vIdx++;showV();}};
+document.addEventListener("keydown",e=>{if($("#viewer").hidden)return;if(e.key==="Escape")closeV();else if(e.key==="ArrowLeft")$("#vPrev").click();else if(e.key==="ArrowRight")$("#vNext").click();});
+$("#vKind").onclick=async()=>{
+  if(!vCur)return; const p=Object.assign({},vCur,{kind:vCur.kind==="after"?"before":"after"});
+  try{await PDB.put(p);}catch(e){toast("Couldn't change it. Try again.");return;}
+  indexPhoto(p); vList=(photoIndex.get(vEntry)||[]).map(m=>m.id); vIdx=Math.max(0,vList.indexOf(p.id)); renderAll(); showV();
+};
+$("#vShare").onclick=async()=>{
+  if(!vCur)return; const info={date:fDate.value,site:fSite.value.trim()};
+  const r=await shareFiles([new File([vCur.blob],photoName(info,vCur.kind,vIdx+1),{type:"image/jpeg"})]); if(r==="retry")toast("Tap Share again");
+};
+$("#vDelete").onclick=async()=>{
+  if(!vCur)return; if(!vDelArmed){vArm(true);return;}
+  const id=vCur.id; try{await PDB.del([id]);}catch(e){toast("Couldn't delete. Try again.");return;}
+  unindexPhoto(id); vList.splice(vIdx,1); if(vIdx>=vList.length)vIdx=vList.length-1; saveDraft(); renderAll(); toast("Photo deleted");
+  if(vList.length)showV(); else closeV();
+};
+
 /* ---------- data helpers ---------- */
 function weekData(){
   const start=state.weekStart,end=addDays(start,6),s=iso(start),e=iso(end);
@@ -397,7 +575,10 @@ function weekData(){
 /* ---------- renderers ---------- */
 function entryHTML(e){
   const time=e.start&&e.end?`<span>${e.start}–${e.end}</span>`:"";
-  return `<button type="button" class="entry" data-edit="${esc(e.id)}"><span class="site">${esc(e.site)}</span><span class="hrs">${fmtH(e.hours)}</span>${e.task?`<span class="what">${esc(e.task)}</span>`:""}<span class="meta"><span class="tag">${esc(e.category||"Other")}</span>${time}</span></button>`;
+  const ph=photoIndex.get(e.id)||[];
+  const strip=ph.length?`<span class="pstrip">${ph.slice(0,4).map(m=>`<img src="${thumbURL.get(m.id)||""}" alt="">`).join("")}${ph.length>4?`<span class="tag">+${ph.length-4}</span>`:""}</span>`:"";
+  const pc=ph.length?`<span>${ph.length} photo${ph.length===1?"":"s"}</span>`:"";
+  return `<button type="button" class="entry" data-edit="${esc(e.id)}"><span class="site">${esc(e.site)}</span><span class="hrs">${fmtH(e.hours)}</span>${e.task?`<span class="what">${esc(e.task)}</span>`:""}${strip}<span class="meta"><span class="tag">${esc(e.category||"Other")}</span>${time}${pc}</span></button>`;
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-edit]");if(b)loadForEdit(b.dataset.edit);});
 
@@ -451,33 +632,34 @@ $("#fName").addEventListener("input",()=>{clearTimeout(nameT);nameT=setTimeout((
 function renderData(){
   const lb=state.prefs.lastBackup;
   $("#backupStatus").textContent=`${state.entries.length} entr${state.entries.length===1?"y":"ies"} on this phone. `+(lb?`Last backup: ${new Date(lb).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})}.`:"No backup yet.");
+  const pc=photoCount();
+  $("#photoStatus").textContent=photosOK?`${pc} photo${pc===1?"":"s"} saved.`:"";
+  if(photosOK&&navigator.storage&&navigator.storage.estimate)navigator.storage.estimate().then(st=>{$("#photoStatus").textContent=`${pc} photo${pc===1?"":"s"} saved · about ${((st.usage||0)/1048576).toFixed(1)} MB used on this phone.`;}).catch(()=>{});
   $("#savedSites").innerHTML=state.prefs.sites.length?state.prefs.sites.map(s=>`<div><span>${esc(s)}</span><button type="button" class="btn ghost small" data-rmsite="${esc(s)}">Remove</button></div>`).join(""):`<p class="empty">No saved sites yet.</p>`;
   const stale=state.entries.length>0&&(!lb||Date.now()-lb>7*864e5);
   $("#backupNotice").hidden=!stale;
   if(stale)$("#backupNoticeText").textContent=lb?"It's been over a week since your last backup.":"You haven't backed up your log yet.";
-  $("#aboutText").textContent=`Version ${APP_VERSION}. Works offline. Entries never leave this phone unless you export or back them up.`;
+  $("#aboutText").textContent=`Version ${APP_VERSION}. Works offline. Entries and photos never leave this phone unless you export, share or back them up.`;
 }
 $("#savedSites").addEventListener("click",e=>{const b=e.target.closest("[data-rmsite]");if(!b)return;state.prefs.sites=state.prefs.sites.filter(s=>s!==b.dataset.rmsite);persist();renderAll();toast("Site removed");});
 
 /* ---------- export / share ---------- */
 // On iPhone this opens the share sheet (Save to Files, Mail, AirDrop). Elsewhere it downloads.
-async function shareFile(filename,text,mime){
-  const file=new File([text],filename,{type:mime});
-  if(navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file],title:filename});return "shared";}
-    catch(e){if(e&&e.name==="AbortError")return "cancelled";}
+async function shareFiles(files){
+  if(navigator.canShare&&navigator.canShare({files})){
+    try{await navigator.share({files});return "shared";}
+    catch(e){if(e&&e.name==="AbortError")return "cancelled"; if(e&&e.name==="NotAllowedError")return "retry";}
   }
-  const url=URL.createObjectURL(file); const a=document.createElement("a");
-  a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),10000);
+  files.forEach(f=>{const url=URL.createObjectURL(f);const a=document.createElement("a");a.href=url;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),20000);});
   return "downloaded";
 }
+function shareFile(filename,text,mime){return shareFiles([new File([text],filename,{type:mime})]);}
 function csvCell(v){v=String(v??"");return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 function buildCSV(){
   const w=weekData(),L=[],row=a=>L.push(a.map(csvCell).join(","));
   row(["Timesheet"]); row(["Employee",state.prefs.name||""]); row(["Week",`${iso(w.start)} to ${iso(w.end)}`]); L.push("");
-  row(["Date","Day","Site","Type of work","Work performed","Start","End","Hours"]);
-  w.days.forEach(d=>d.items.forEach(x=>row([x.date,d.name,x.site,x.category,x.task,x.start,x.end,fmtH(x.hours)])));
+  row(["Date","Day","Site","Type of work","Work performed","Start","End","Hours","Photos"]);
+  w.days.forEach(d=>d.items.forEach(x=>row([x.date,d.name,x.site,x.category,x.task,x.start,x.end,fmtH(x.hours),(photoIndex.get(x.id)||[]).length])));
   L.push("");
   w.days.forEach(d=>row(["",d.name+" total","","","","","",fmtH(d.total)]));
   row(["","Regular hours","","","","","",fmtH(w.reg)]); row(["","Over 40 hours","","","","","",fmtH(w.ot)]); row(["","Week total","","","","","",fmtH(w.total)]);
@@ -501,11 +683,33 @@ $("#copyBtn").onclick=()=>{
 };
 
 /* ---------- backup / restore ---------- */
+let readyBackup=null;
+function resetBackupBtn(){readyBackup=null;const b=$("#backupBtn");b.disabled=false;b.textContent="Save backup";}
 async function doBackup(){
-  const data=JSON.stringify({app:"field-log",version:1,exportedAt:new Date().toISOString(),entries:state.entries,prefs:{sites:state.prefs.sites,name:state.prefs.name}},null,1);
-  const r=await shareFile(`field-log-backup_${iso(new Date())}.json`,data,"application/json");
-  if(r==="cancelled"){toast("Backup cancelled");return;}
-  state.prefs.lastBackup=Date.now(); persist(); renderData(); toast("Backup saved");
+  const btn=$("#backupBtn");
+  if(readyBackup){
+    const r=await shareFiles([readyBackup]);
+    if(r==="retry"){btn.textContent="Save backup file";toast("Backup ready. Tap Save backup file.");return;}
+    if(r==="cancelled"){toast("Backup not saved. Tap the button to try again.");return;}
+    resetBackupBtn(); state.prefs.lastBackup=Date.now(); persist(); renderData(); toast("Backup saved"); return;
+  }
+  const ids=new Set(state.entries.map(e=>e.id));
+  const head=JSON.stringify({app:"field-log",version:2,exportedAt:new Date().toISOString(),entries:state.entries,prefs:{sites:state.prefs.sites,name:state.prefs.name}});
+  const parts=[head.slice(0,-1)]; let n=0;
+  if($("#incPhotos").checked&&photosOK&&photoCount()>0){
+    btn.disabled=true; btn.textContent="Preparing backup…";
+    try{
+      const all=await PDB.all(); parts.push(',"photos":[');
+      for(const p of all){ if(!ids.has(p.entryId))continue;
+        parts.push((n?",":"")+JSON.stringify({id:p.id,entryId:p.entryId,kind:p.kind,createdAt:p.createdAt,w:p.w,h:p.h,data:await blobToDataURL(p.blob),thumb:await blobToDataURL(p.thumb)}));
+        n++; btn.textContent=`Preparing backup… ${n}`; }
+      parts.push("]");
+    }catch(e){resetBackupBtn();toast("Couldn't read the photos for the backup.");return;}
+  }
+  parts.push("}");
+  readyBackup=new File(parts,`field-log-backup_${iso(new Date())}.json`,{type:"application/json"});
+  if(n>0){btn.disabled=false;const sz=readyBackup.size<1048576?`${Math.max(1,Math.round(readyBackup.size/1024))} KB`:`${(readyBackup.size/1048576).toFixed(1)} MB`;btn.textContent=`Save backup file (${sz})`;toast("Backup ready. Tap the button to save it.");return;}
+  return doBackup();
 }
 $("#backupBtn").onclick=doBackup;
 $("#backupNowBtn").onclick=()=>{showTab("data");doBackup();};
@@ -517,18 +721,29 @@ $("#restoreFile").addEventListener("change",async e=>{
     const o=JSON.parse(await f.text());
     if(o.app!=="field-log"||!Array.isArray(o.entries))throw 0;
     pending=o;
-    $("#restoreText").textContent=`This backup has ${o.entries.length} entries from ${o.exportedAt?new Date(o.exportedAt).toLocaleDateString():"an earlier date"}. Add them to your current log, or replace your log with the backup?`;
+    $("#restoreText").textContent=`This backup has ${o.entries.length} entries${Array.isArray(o.photos)&&o.photos.length?` and ${o.photos.length} photos`:""} from ${o.exportedAt?new Date(o.exportedAt).toLocaleDateString():"an earlier date"}. Add them to your current log, or replace your log with the backup?`;
     $("#restoreConfirm").hidden=false;
   }catch(err){toast("That file isn't a Field Log backup.");}
 });
-function finishRestore(replace){
-  if(!pending)return;
-  if(replace){state.entries=pending.entries;}
-  else{const ids=new Set(state.entries.map(x=>x.id));pending.entries.forEach(x=>{if(!ids.has(x.id))state.entries.push(x)});}
-  const sites=new Set([...(state.prefs.sites||[]),...((pending.prefs&&pending.prefs.sites)||[])]);
-  state.prefs.sites=[...sites]; if(!state.prefs.name&&pending.prefs&&pending.prefs.name)state.prefs.name=pending.prefs.name;
-  pending=null; $("#restoreConfirm").hidden=true;
-  if(persist())toast(replace?"Log replaced from backup":"Backup entries added"); renderAll();
+async function finishRestore(replace){
+  if(!pending)return; const o=pending; pending=null; $("#restoreConfirm").hidden=true;
+  if(replace){const keep=new Set(o.entries.map(x=>x.id));[...photoIndex.keys()].forEach(eid=>{if(!keep.has(eid)&&eid!==state.draftId)deletePhotosFor(eid);});state.entries=o.entries;}
+  else{const ids=new Set(state.entries.map(x=>x.id));o.entries.forEach(x=>{if(!ids.has(x.id))state.entries.push(x)});}
+  const sites=new Set([...(state.prefs.sites||[]),...((o.prefs&&o.prefs.sites)||[])]);
+  state.prefs.sites=[...sites]; if(!state.prefs.name&&o.prefs&&o.prefs.name)state.prefs.name=o.prefs.name;
+  persist(); renderAll();
+  let added=0,failed=0;
+  if(Array.isArray(o.photos)&&o.photos.length&&photosOK){
+    toast("Restoring photos…");
+    const ids=new Set(state.entries.map(x=>x.id)), have=new Set(); photoIndex.forEach(a=>a.forEach(m=>have.add(m.id)));
+    for(const ph of o.photos){
+      if(!ph||!ids.has(ph.entryId)||have.has(ph.id)||!ph.data)continue;
+      try{const p={id:ph.id,entryId:ph.entryId,kind:ph.kind==="after"?"after":"before",createdAt:ph.createdAt||Date.now(),w:ph.w,h:ph.h,blob:dataURLToBlob(ph.data),thumb:dataURLToBlob(ph.thumb||ph.data)};await PDB.put(p);indexPhoto(p);added++;}
+      catch(e){failed++;}
+    }
+  }
+  renderAll();
+  toast((replace?"Log replaced from backup":"Backup entries added")+(added?` with ${added} photo${added===1?"":"s"}`:"")+(failed?`. ${failed} photos couldn't be restored.`:""));
 }
 $("#restoreMerge").onclick=()=>finishRestore(false);
 $("#restoreReplace").onclick=()=>finishRestore(true);
@@ -539,11 +754,11 @@ function renderAll(){
   $("#todayLabel").textContent=longDate(new Date());
   const m=monday(new Date()),s=iso(m),e=iso(addDays(m,6));
   $("#headWeek").textContent=fmtH(state.entries.filter(x=>x.date>=s&&x.date<=e).reduce((t,x)=>t+x.hours,0));
-  renderSiteChips(); renderToday(); renderWeek(); renderSheet(); renderData();
+  renderSiteChips(); renderToday(); renderWeek(); renderSheet(); renderData(); renderFormThumbs();
 }
-load(); fDate.value=iso(new Date()); renderCats(); setHours(1); renderAll();
+load(); fDate.value=iso(new Date()); setHours(1); state.draftId=uid(); restoreDraft(); renderCats(); renderAll(); loadPhotos();
 // Refresh "today" when the app is reopened on a new day.
-document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!state.editing&&fDate.value<iso(new Date())){fDate.value=iso(new Date());state.weekStart=monday(new Date());renderAll();}});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!state.editing&&fDate.value<iso(new Date())&&!draftHasContent()){fDate.value=iso(new Date());state.weekStart=monday(new Date());renderAll();}});
 
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>r.update()).catch(()=>{}));}
 })();
