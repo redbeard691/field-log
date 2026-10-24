@@ -30,7 +30,7 @@
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;touch-action:manipulation}
 button,a,input,textarea,label{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.stepper button{-webkit-user-select:none;user-select:none}
+.stepper button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 html,body{background:var(--bg);color:var(--ink);margin:0}
 body{font-family:var(--body);font-size:15px;line-height:1.45;padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--accent)}
@@ -126,8 +126,7 @@ tr.grand td{font-weight:700;border-bottom:0;background:var(--accent-soft)}
 .thumbs:empty{display:none}
 .thumb{position:relative;aspect-ratio:1;max-width:100%;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--sunk);padding:0;cursor:pointer}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
-.kind{position:absolute;left:4px;bottom:4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--ink);color:var(--surface);border-radius:4px;padding:1px 5px}
-.kind.after{background:var(--accent);color:var(--accent-ink)}
+.thumb .num{position:absolute;left:4px;bottom:4px;font-size:11px;font-weight:700;background:var(--ink);color:var(--surface);border-radius:4px;padding:0 5px;font-family:var(--mono)}
 .entry .pstrip{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .entry .pstrip img{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block}
 .viewer{position:fixed;inset:0;z-index:30;background:#000;color:#fff;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
@@ -194,17 +193,16 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
           <input type="number" id="fHours" min="0" max="24" step="0.25" inputmode="decimal" value="1.00">
           <button type="button" id="hPlus" aria-label="Add 15 minutes">+</button>
         </div>
-        <div class="hint" id="hoursHint">Steps of 15 minutes. Enter a start and end time to fill this in.</div>
+        <div class="hint" id="hoursHint">Tap or hold − / + to change by 15 minutes. Or enter a start and end time to fill this in.</div>
       </div>
       <div class="photos">
         <span class="label">Photos</span>
         <div class="photobtns">
-          <label class="btn ghost photoadd"><input type="file" class="photoInput" id="photoBefore" data-kind="before" accept="image/*" multiple>+ Before photo</label>
-          <label class="btn ghost photoadd"><input type="file" class="photoInput" id="photoAfter" data-kind="after" accept="image/*" multiple>+ After photo</label>
+          <label class="btn ghost photoadd"><input type="file" class="photoInput" id="photoAdd" accept="image/*" multiple>+ Add photos</label>
         </div>
         <div class="thumbs" id="formThumbs"></div>
         <button type="button" class="btn ghost small" id="sharePhotosBtn" hidden>Share these photos</button>
-        <div class="hint" id="photoHint">Take a photo or pick from your library. Add the before photo now and the after photo later. Your unsaved entry is kept until you tap Save.</div>
+        <div class="hint" id="photoHint">Take photos or pick from your library, as many as the job needs. You can add more at any point during the job. Your unsaved entry is kept until you tap Save.</div>
       </div>
       <div class="actions">
         <button type="submit" class="btn primary" id="saveBtn" style="flex-basis:100%">Save entry</button>
@@ -292,7 +290,6 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
   <div class="vimg"><img id="vImg" alt=""></div>
   <div class="vbar">
     <button type="button" class="btn" id="vPrev" aria-label="Previous photo">‹</button>
-    <button type="button" class="btn" id="vKind">Mark as after</button>
     <button type="button" class="btn" id="vShare">Share</button>
     <button type="button" class="btn danger" id="vDelete">Delete</button>
     <button type="button" class="btn" id="vNext" aria-label="Next photo">›</button>
@@ -310,7 +307,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
 
 <script>
 (function(){
-const APP_VERSION="1.3";
+const APP_VERSION="1.4";
 const CATS=["Repair","Maintenance","Install","Inspection","Travel","Turn-Over","Other"];
 const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -355,14 +352,14 @@ const PDB={db:null,
   async all(){const db=await this.open();return this.req(db.transaction("photos").objectStore("photos").getAll());},
   async del(ids){const db=await this.open();return new Promise((res,rej)=>{const t=db.transaction("photos","readwrite");const st=t.objectStore("photos");ids.forEach(i=>st.delete(i));t.oncomplete=()=>res();t.onerror=t.onabort=()=>rej(t.error);});}
 };
-const photoIndex=new Map(); // entry id -> [{id,kind,createdAt}]
+const photoIndex=new Map(); // entry id -> [{id,createdAt}]
 const thumbURL=new Map();   // photo id -> object URL of its thumbnail
 const formBlobs=new Map();  // photo id -> full image, preloaded so Share opens instantly
-function sortPhotos(arr){arr.sort((a,b)=>(a.kind===b.kind?0:a.kind==="before"?-1:1)||a.createdAt-b.createdAt);}
+function sortPhotos(arr){arr.sort((a,b)=>a.createdAt-b.createdAt);}
 function indexPhoto(p){
   for(const [eid,arr] of photoIndex){const i=arr.findIndex(m=>m.id===p.id);if(i>=0&&eid!==p.entryId){arr.splice(i,1);}}
   if(!photoIndex.has(p.entryId))photoIndex.set(p.entryId,[]);
-  const arr=photoIndex.get(p.entryId),m={id:p.id,kind:p.kind,createdAt:p.createdAt},i=arr.findIndex(x=>x.id===p.id);
+  const arr=photoIndex.get(p.entryId),m={id:p.id,createdAt:p.createdAt},i=arr.findIndex(x=>x.id===p.id);
   if(i>=0)arr[i]=m; else arr.push(m); sortPhotos(arr);
   if(!thumbURL.has(p.id)&&p.thumb)thumbURL.set(p.id,URL.createObjectURL(p.thumb));
 }
@@ -389,7 +386,7 @@ async function processImage(file){
   try{const full=await draw(1600,0.78),th=await draw(240,0.6);return{blob:full.b,thumb:th.b,w:full.w,h:full.h};}
   finally{URL.revokeObjectURL(u);}
 }
-function photoName(info,kind,n){const site=(info.site||"site").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").slice(0,30)||"site";return `${info.date||iso(new Date())}_${site}_${kind}_${n}.jpg`;}
+function photoName(info,n){const site=(info.site||"site").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").slice(0,30)||"site";return `${info.date||iso(new Date())}_${site}_${n}.jpg`;}
 function blobToDataURL(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b);});}
 function dataURLToBlob(d){const k=d.indexOf(",");const head=d.slice(0,k),bin=atob(d.slice(k+1));const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:(head.match(/:(.*?);/)||[])[1]||"image/jpeg"});}
 
@@ -406,8 +403,23 @@ const fDate=$("#fDate"),fSite=$("#fSite"),fWhat=$("#fWhat"),fStart=$("#fStart"),
 function renderCats(){$("#catChips").innerHTML=CATS.map(c=>`<button type="button" class="chip" aria-pressed="${c===state.cat}" data-cat="${c}">${c}</button>`).join("");}
 $("#catChips").addEventListener("click",e=>{const b=e.target.closest("[data-cat]");if(!b)return;state.cat=b.dataset.cat;renderCats();});
 function setHours(h){h=Math.max(0,Math.min(24,q4(h)));fHours.value=fmtH(h);}
-$("#hMinus").onclick=()=>{setHours((parseFloat(fHours.value)||0)-0.25);clearTimes();};
-$("#hPlus").onclick=()=>{setHours((parseFloat(fHours.value)||0)+0.25);clearTimes();};
+// Tap to change by 15 minutes; hold to keep changing (speeds up after about a second).
+function bindStepper(btn,delta){
+  let wait=null,rep=null,fromPointer=false;
+  const step=()=>{const before=parseFloat(fHours.value)||0;setHours(before+delta);clearTimes();return (parseFloat(fHours.value)||0)!==before;};
+  const stop=()=>{clearTimeout(wait);clearInterval(rep);wait=rep=null;};
+  btn.addEventListener("pointerdown",e=>{
+    if(e.pointerType==="mouse"&&e.button!==0)return;
+    e.preventDefault(); fromPointer=true; stop(); step();
+    try{btn.setPointerCapture(e.pointerId);}catch(_){}
+    let n=0;
+    wait=setTimeout(()=>{rep=setInterval(()=>{if(!step()){stop();return;} if(++n===8){clearInterval(rep);rep=setInterval(()=>{if(!step())stop();},80);}},160);},400);
+  });
+  ["pointerup","pointercancel","lostpointercapture"].forEach(t=>btn.addEventListener(t,stop));
+  btn.addEventListener("click",()=>{if(fromPointer){fromPointer=false;return;} step();}); // keyboard
+  btn.addEventListener("contextmenu",e=>e.preventDefault());
+}
+bindStepper($("#hMinus"),-0.25); bindStepper($("#hPlus"),0.25);
 function clearTimes(){if(fStart.value||fEnd.value){fStart.value="";fEnd.value="";$("#hoursHint").textContent="Start and end cleared because hours were changed by hand.";}}
 function calcFromTimes(){
   if(!fStart.value||!fEnd.value)return;
@@ -442,7 +454,7 @@ function resetForm(keepDate){
     if(!keepDate) fDate.value=iso(new Date());
     fSite.value="";fWhat.value="";fStart.value="";fEnd.value="";setHours(1);
   }
-  $("#hoursHint").textContent="Steps of 15 minutes. Enter a start and end time to fill this in.";
+  $("#hoursHint").textContent="Tap or hold − / + to change by 15 minutes. Or enter a start and end time to fill this in.";
   $("#formTitle").textContent="Log a job"; $("#saveBtn").textContent="Save entry";
   $("#cancelEdit").hidden=true; $("#deleteBtn").hidden=true; armDelete(false);
   renderAll();
@@ -505,7 +517,7 @@ function renderFormThumbs(){
   const box=$("#formThumbs");
   if(!photosOK){$(".photobtns").hidden=true;$("#photoHint").textContent="Photos aren't available in this browser.";box.innerHTML="";$("#sharePhotosBtn").hidden=true;return;}
   const list=photoIndex.get(currentFormId())||[];
-  box.innerHTML=list.map(m=>`<button type="button" class="thumb" data-view="${m.id}" aria-label="View ${m.kind} photo"><img src="${thumbURL.get(m.id)||""}" alt=""><span class="kind ${m.kind}">${m.kind}</span></button>`).join("");
+  box.innerHTML=list.map((m,i)=>`<button type="button" class="thumb" data-view="${m.id}" aria-label="View photo ${i+1}"><img src="${thumbURL.get(m.id)||""}" alt=""><span class="num">${i+1}</span></button>`).join("");
   const sb=$("#sharePhotosBtn"); sb.hidden=!list.length; sb.textContent=list.length>1?`Share these ${list.length} photos`:"Share this photo";
   const want=new Set(list.map(m=>m.id)); [...formBlobs.keys()].forEach(k=>{if(!want.has(k))formBlobs.delete(k);});
   list.forEach(m=>{if(!formBlobs.has(m.id))PDB.get(m.id).then(p=>{if(p)formBlobs.set(m.id,p.blob);}).catch(()=>{});});
@@ -513,19 +525,18 @@ function renderFormThumbs(){
 $("#formThumbs").addEventListener("click",e=>{const b=e.target.closest("[data-view]");if(b)openViewer(currentFormId(),b.dataset.view);});
 $$(".photoInput").forEach(inp=>inp.addEventListener("change",async()=>{
   const files=[...inp.files]; inp.value=""; if(!files.length)return;
-  const kind=inp.dataset.kind, eid=currentFormId(); let ok=0;
+  const eid=currentFormId(); let ok=0;
   toast(files.length>1?`Adding ${files.length} photos…`:"Adding photo…");
   for(const f of files){
-    try{const r=await processImage(f);const p={id:"p"+uid(),entryId:eid,kind,createdAt:Date.now(),blob:r.blob,thumb:r.thumb,w:r.w,h:r.h};await PDB.put(p);indexPhoto(p);ok++;}catch(e){}
+    try{const r=await processImage(f);const p={id:"p"+uid(),entryId:eid,createdAt:Date.now(),blob:r.blob,thumb:r.thumb,w:r.w,h:r.h};await PDB.put(p);indexPhoto(p);ok++;}catch(e){}
   }
   saveDraft(); renderAll();
-  const K=kind[0].toUpperCase()+kind.slice(1);
-  toast(ok===files.length?(ok>1?`${ok} ${kind} photos added`:`${K} photo added`):ok?`Added ${ok} of ${files.length}. Some couldn't be read.`:"Couldn't add that photo. The phone may be out of storage.");
+  toast(ok===files.length?(ok>1?`${ok} photos added`:"Photo added"):ok?`Added ${ok} of ${files.length}. Some couldn't be read.`:"Couldn't add that photo. The phone may be out of storage.");
 }));
 $("#sharePhotosBtn").onclick=async()=>{
-  const list=photoIndex.get(currentFormId())||[], info={date:fDate.value,site:fSite.value.trim()}, n={before:0,after:0};
+  const list=photoIndex.get(currentFormId())||[], info={date:fDate.value,site:fSite.value.trim()};
   if(list.some(m=>!formBlobs.has(m.id))){renderFormThumbs();toast("Getting photos ready. Tap again in a moment.");return;}
-  const files=list.map(m=>new File([formBlobs.get(m.id)],photoName(info,m.kind,++n[m.kind]),{type:"image/jpeg"}));
+  const files=list.map((m,i)=>new File([formBlobs.get(m.id)],photoName(info,i+1),{type:"image/jpeg"}));
   const r=await shareFiles(files); if(r==="retry")toast("Tap Share again");
 };
 
@@ -537,8 +548,7 @@ async function showV(){
   let p=null; try{p=await PDB.get(id);}catch(e){}
   if(!p){toast("Couldn't open that photo.");closeV();return;}
   vCur=p; if(vURL)URL.revokeObjectURL(vURL); vURL=URL.createObjectURL(p.blob); $("#vImg").src=vURL;
-  $("#vLabel").textContent=`${p.kind==="after"?"After":"Before"} · ${vIdx+1} of ${vList.length}`;
-  $("#vKind").textContent=p.kind==="after"?"Mark as before":"Mark as after";
+  $("#vLabel").textContent=`Photo ${vIdx+1} of ${vList.length}`;
   $("#vPrev").disabled=vIdx===0; $("#vNext").disabled=vIdx>=vList.length-1; vArm(false);
 }
 function closeV(){$("#viewer").hidden=true;document.documentElement.style.overflow="";if(vURL){URL.revokeObjectURL(vURL);vURL=null;}$("#vImg").removeAttribute("src");vCur=null;}
@@ -547,14 +557,9 @@ $("#vClose").onclick=closeV;
 $("#vPrev").onclick=()=>{if(vIdx>0){vIdx--;showV();}};
 $("#vNext").onclick=()=>{if(vIdx<vList.length-1){vIdx++;showV();}};
 document.addEventListener("keydown",e=>{if($("#viewer").hidden)return;if(e.key==="Escape")closeV();else if(e.key==="ArrowLeft")$("#vPrev").click();else if(e.key==="ArrowRight")$("#vNext").click();});
-$("#vKind").onclick=async()=>{
-  if(!vCur)return; const p=Object.assign({},vCur,{kind:vCur.kind==="after"?"before":"after"});
-  try{await PDB.put(p);}catch(e){toast("Couldn't change it. Try again.");return;}
-  indexPhoto(p); vList=(photoIndex.get(vEntry)||[]).map(m=>m.id); vIdx=Math.max(0,vList.indexOf(p.id)); renderAll(); showV();
-};
 $("#vShare").onclick=async()=>{
   if(!vCur)return; const info={date:fDate.value,site:fSite.value.trim()};
-  const r=await shareFiles([new File([vCur.blob],photoName(info,vCur.kind,vIdx+1),{type:"image/jpeg"})]); if(r==="retry")toast("Tap Share again");
+  const r=await shareFiles([new File([vCur.blob],photoName(info,vIdx+1),{type:"image/jpeg"})]); if(r==="retry")toast("Tap Share again");
 };
 $("#vDelete").onclick=async()=>{
   if(!vCur)return; if(!vDelArmed){vArm(true);return;}
@@ -701,7 +706,7 @@ async function doBackup(){
     try{
       const all=await PDB.all(); parts.push(',"photos":[');
       for(const p of all){ if(!ids.has(p.entryId))continue;
-        parts.push((n?",":"")+JSON.stringify({id:p.id,entryId:p.entryId,kind:p.kind,createdAt:p.createdAt,w:p.w,h:p.h,data:await blobToDataURL(p.blob),thumb:await blobToDataURL(p.thumb)}));
+        parts.push((n?",":"")+JSON.stringify({id:p.id,entryId:p.entryId,createdAt:p.createdAt,w:p.w,h:p.h,data:await blobToDataURL(p.blob),thumb:await blobToDataURL(p.thumb)}));
         n++; btn.textContent=`Preparing backup… ${n}`; }
       parts.push("]");
     }catch(e){resetBackupBtn();toast("Couldn't read the photos for the backup.");return;}
@@ -738,7 +743,7 @@ async function finishRestore(replace){
     const ids=new Set(state.entries.map(x=>x.id)), have=new Set(); photoIndex.forEach(a=>a.forEach(m=>have.add(m.id)));
     for(const ph of o.photos){
       if(!ph||!ids.has(ph.entryId)||have.has(ph.id)||!ph.data)continue;
-      try{const p={id:ph.id,entryId:ph.entryId,kind:ph.kind==="after"?"after":"before",createdAt:ph.createdAt||Date.now(),w:ph.w,h:ph.h,blob:dataURLToBlob(ph.data),thumb:dataURLToBlob(ph.thumb||ph.data)};await PDB.put(p);indexPhoto(p);added++;}
+      try{const p={id:ph.id,entryId:ph.entryId,createdAt:ph.createdAt||Date.now(),w:ph.w,h:ph.h,blob:dataURLToBlob(ph.data),thumb:dataURLToBlob(ph.thumb||ph.data)};await PDB.put(p);indexPhoto(p);added++;}
       catch(e){failed++;}
     }
   }
