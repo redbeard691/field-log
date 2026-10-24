@@ -1,5 +1,5 @@
 // Field Log offline cache. Change VERSION whenever you upload new app files.
-const VERSION = "field-log-v5";
+const VERSION = "field-log-v6";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {

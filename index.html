@@ -236,7 +236,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
       <button type="button" class="arrow nextWk" aria-label="Next week">›</button>
     </div>
     <div class="card">
-      <div><label class="label" for="fName">Employee name on timesheet</label><input type="text" id="fName" placeholder="Your name" autocomplete="name"></div>
+      <div><label class="label" for="fName">Employee name on timesheet</label><input type="text" id="fName" placeholder="Your name" autocomplete="name"><div class="hint" id="nameHint">Saved on this phone, so you only type it once. Change it here any time.</div></div>
       <div class="actions">
         <button type="button" class="btn primary" id="csvBtn">Export timesheet</button>
         <button type="button" class="btn ghost" id="copyBtn">Copy as text</button>
@@ -307,7 +307,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
 
 <script>
 (function(){
-const APP_VERSION="1.4";
+const APP_VERSION="1.5";
 const CATS=["Repair","Maintenance","Install","Inspection","Travel","Turn-Over","Other"];
 const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -631,8 +631,21 @@ function renderSheet(){
   const sites=Object.entries(bySite).sort((a,b)=>b[1]-a[1]);
   $("#bySite").innerHTML=sites.length?sites.map(([s,h])=>`<div class="siterow"><span>${esc(s)}</span><span>${fmtH(h)}</span></div>`).join(""):`<p class="empty">No hours this week.</p>`;
 }
+// Employee name: saved as you type, and again when you leave the field.
 let nameT;
-$("#fName").addEventListener("input",()=>{clearTimeout(nameT);nameT=setTimeout(()=>{state.prefs.name=$("#fName").value.trim();persist();},500);});
+function saveName(){clearTimeout(nameT);const n=$("#fName").value.trim();if(n===(state.prefs.name||""))return;state.prefs.name=n;persist();}
+$("#fName").addEventListener("input",()=>{clearTimeout(nameT);nameT=setTimeout(saveName,250);});
+["change","blur"].forEach(t=>$("#fName").addEventListener(t,saveName));
+document.addEventListener("visibilitychange",()=>{if(document.hidden)saveName();});
+window.addEventListener("pagehide",saveName);
+function weekRangeLabel(a,b){
+  const M=d=>d.toLocaleDateString("en-US",{month:"short"});
+  if(a.getFullYear()!==b.getFullYear())return `${M(a)} ${a.getDate()}, ${a.getFullYear()}-${M(b)} ${b.getDate()}, ${b.getFullYear()}`;
+  if(a.getMonth()!==b.getMonth())return `${M(a)} ${a.getDate()}-${M(b)} ${b.getDate()}, ${b.getFullYear()}`;
+  return `${M(a)} ${a.getDate()}-${b.getDate()}, ${b.getFullYear()}`;
+}
+function fileSafe(t){return String(t||"").replace(/[\\/:*?"<>|\u0000-\u001f]+/g," ").replace(/\s+/g," ").trim().slice(0,60);}
+function sheetTitle(w){const n=fileSafe(state.prefs.name);return `${n?n+" - ":""}Timesheet - ${weekRangeLabel(w.start,w.end)}`;}
 
 function renderData(){
   const lb=state.prefs.lastBackup;
@@ -662,7 +675,7 @@ function shareFile(filename,text,mime){return shareFiles([new File([text],filena
 function csvCell(v){v=String(v??"");return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 function buildCSV(){
   const w=weekData(),L=[],row=a=>L.push(a.map(csvCell).join(","));
-  row(["Timesheet"]); row(["Employee",state.prefs.name||""]); row(["Week",`${iso(w.start)} to ${iso(w.end)}`]); L.push("");
+  row([sheetTitle(w)]); row(["Employee",state.prefs.name||""]); row(["Week",`${iso(w.start)} to ${iso(w.end)}`]); L.push("");
   row(["Date","Day","Site","Type of work","Work performed","Start","End","Hours","Photos"]);
   w.days.forEach(d=>d.items.forEach(x=>row([x.date,d.name,x.site,x.category,x.task,x.start,x.end,fmtH(x.hours),(photoIndex.get(x.id)||[]).length])));
   L.push("");
@@ -671,15 +684,16 @@ function buildCSV(){
   return{text:"﻿"+L.join("\r\n"),w};
 }
 function buildText(){
-  const w=weekData(); let t=`TIMESHEET${state.prefs.name?" – "+state.prefs.name:""}\nWeek: ${shortDate(w.start)} – ${shortDate(w.end)}, ${w.end.getFullYear()}\n\n`;
+  saveName(); const w=weekData(); let t=`${sheetTitle(w)}\n\n`;
   w.days.filter(d=>d.items.length).forEach(d=>{t+=`${d.name} ${shortDate(d.date)} — ${fmtH(d.total)} hrs\n`;d.items.forEach(x=>t+=`  • ${x.site} (${x.category}) ${fmtH(x.hours)} hrs${x.start&&x.end?" "+x.start+"–"+x.end:""}${x.task?": "+x.task:""}\n`);});
   return t+`\nRegular: ${fmtH(w.reg)}   Over 40: ${fmtH(w.ot)}   Total: ${fmtH(w.total)} hrs`;
 }
 $("#csvBtn").onclick=async()=>{
-  const{text,w}=buildCSV();
+  saveName(); const{text,w}=buildCSV();
   if(!w.list.length){toast("No entries this week to export");return;}
-  const r=await shareFile(`timesheet_${iso(w.start)}.csv`,text,"text/csv");
-  if(r!=="cancelled")toast("Timesheet ready");
+  const r=await shareFile(`${sheetTitle(w)}.csv`,text,"text/csv");
+  if(r==="retry"){toast("Tap Export timesheet again");return;}
+  if(r!=="cancelled")toast(state.prefs.name?"Timesheet ready":"Timesheet ready. Add your name above so it shows on the file.");
 };
 $("#copyBtn").onclick=()=>{
   const t=buildText();
