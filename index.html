@@ -28,7 +28,9 @@
   --warn:#F0A060; --warn-soft:#3D2716; --danger:#F2867E; color-scheme:dark}}
 
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+button,a,input,textarea,label{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.stepper button{-webkit-user-select:none;user-select:none}
 html,body{background:var(--bg);color:var(--ink);margin:0}
 body{font-family:var(--body);font-size:15px;line-height:1.45;padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--accent)}
@@ -263,7 +265,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);background:var(--accent-s
 
 <script>
 (function(){
-const APP_VERSION="1.0";
+const APP_VERSION="1.1";
 const CATS=["Repair","Maintenance","Install","Inspection","Travel","Turn-Over","Other"];
 const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
